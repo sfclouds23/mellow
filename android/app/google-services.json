@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "834288145179",
+    "project_id": "mellow-13c1c",
+    "storage_bucket": "mellow-13c1c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:834288145179:android:c999993fe984e7602a39be",
+        "android_client_info": {
+          "package_name": "com.example.mellow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB78pxREn5eOKMaal-U1TIhKR45lMwtaaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
