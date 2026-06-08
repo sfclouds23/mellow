@@ -1,9 +1,17 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../chat/home_screen.dart';
+import 'register_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
   final String verificationId;
-  const OtpScreen({super.key, required this.phoneNumber, required this.verificationId});
+  const OtpScreen({
+    super.key,
+    required this.phoneNumber,
+    required this.verificationId,
+  });
 
   @override
   State<OtpScreen> createState() => _OtpScreenState();
@@ -14,6 +22,71 @@ class _OtpScreenState extends State<OtpScreen> {
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes =
       List.generate(6, (_) => FocusNode());
+  bool _isLoading = false;
+
+  void _verifyOtp() async {
+    final otp = _controllers.map((c) => c.text).join();
+    if (otp.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter the 6-digit code')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Step 1 — verify OTP
+      PhoneAuthCredential credential = PhoneAuthProvider.credential(
+        verificationId: widget.verificationId,
+        smsCode: otp,
+      );
+
+      UserCredential result =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      // Step 2 — normalize phone number
+      String normalizedPhone = widget.phoneNumber
+          .replaceAll(' ', '')
+          .replaceAll('-', '');
+      if (!normalizedPhone.startsWith('+')) {
+        normalizedPhone = '+$normalizedPhone';
+      }
+
+      // Step 3 — check if user exists in Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(result.user!.uid)
+          .get();
+
+      if (mounted) {
+        if (userDoc.exists &&
+            userDoc.data()?['name'] != null &&
+            userDoc.data()!['name'].toString().trim().isNotEmpty) {
+          // Existing user — go to Home
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+            (route) => false,
+          );
+        } else {
+          // New user — go to Register
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RegisterScreen(phone: normalizedPhone),
+            ),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid OTP. Try again.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +107,8 @@ class _OtpScreenState extends State<OtpScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              const Icon(
-                Icons.lock_outline_rounded,
-                size: 64,
-                color: Color(0xFF00BFA5),
-              ),
+              const Icon(Icons.lock_outline_rounded,
+                  size: 64, color: Color(0xFF00BFA5)),
               const SizedBox(height: 16),
               const Text(
                 'Verify your number',
@@ -51,10 +121,7 @@ class _OtpScreenState extends State<OtpScreen> {
               Text(
                 'Enter the 6-digit code sent to\n${widget.phoneNumber}',
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 15, color: Colors.grey),
               ),
               const SizedBox(height: 40),
               Row(
@@ -70,9 +137,7 @@ class _OtpScreenState extends State<OtpScreen> {
                       textAlign: TextAlign.center,
                       maxLength: 1,
                       style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+                          fontSize: 22, fontWeight: FontWeight.bold),
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
@@ -106,9 +171,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: verify OTP with Firebase
-                  },
+                  onPressed: _isLoading ? null : _verifyOtp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF00BFA5),
                     foregroundColor: Colors.white,
@@ -116,20 +179,20 @@ class _OtpScreenState extends State<OtpScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Verify',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Verify',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(height: 20),
               TextButton(
-                onPressed: () {
-                  // TODO: resend OTP
-                },
+                onPressed: _isLoading ? null : () {},
                 child: const Text(
                   'Resend code',
                   style: TextStyle(

@@ -1,9 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatScreen extends StatefulWidget {
   final String userName;
-  const ChatScreen({super.key, required this.userName});
+  final String userId;
+  const ChatScreen({
+    super.key,
+    required this.userName,
+    required this.userId,
+  });
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -15,7 +21,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String get _chatId {
-    final ids = ['me', widget.userName.replaceAll(' ', '_').toLowerCase()];
+    final myId = FirebaseAuth.instance.currentUser?.uid ?? 'me';
+    final ids = [myId, widget.userId];
     ids.sort();
     return ids.join('_');
   }
@@ -31,7 +38,7 @@ class _ChatScreenState extends State<ChatScreen> {
         .collection('messages')
         .add({
       'text': text,
-      'senderId': 'me',
+      'senderId': FirebaseAuth.instance.currentUser?.uid ?? 'me',
       'timestamp': FieldValue.serverTimestamp(),
     });
 
@@ -48,7 +55,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: const Color(0xFFF0F0F0),
       appBar: AppBar(
         backgroundColor: const Color(0xFF00BFA5),
@@ -130,16 +139,21 @@ class _ChatScreenState extends State<ChatScreen> {
                   padding: const EdgeInsets.all(12),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    final msg = messages[index].data() as Map<String, dynamic>;
-                    final isMe = msg['senderId'] == 'me';
+                    final msg =
+                        messages[index].data() as Map<String, dynamic>;
+                    final isMe = msg['senderId'] ==
+                        FirebaseAuth.instance.currentUser?.uid;
                     final text = msg['text'] ?? '';
                     final timestamp = msg['timestamp'] as Timestamp?;
                     final time = timestamp != null
-                        ? TimeOfDay.fromDateTime(timestamp.toDate()).format(context)
+                        ? TimeOfDay.fromDateTime(timestamp.toDate())
+                            .format(context)
                         : '';
 
                     return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isMe
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         padding: const EdgeInsets.symmetric(
@@ -147,15 +161,20 @@ class _ChatScreenState extends State<ChatScreen> {
                           vertical: 10,
                         ),
                         constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.7,
+                          maxWidth:
+                              MediaQuery.of(context).size.width * 0.7,
                         ),
                         decoration: BoxDecoration(
-                          color: isMe ? const Color(0xFF00BFA5) : Colors.white,
+                          color: isMe
+                              ? const Color(0xFF00BFA5)
+                              : Colors.white,
                           borderRadius: BorderRadius.only(
                             topLeft: const Radius.circular(16),
                             topRight: const Radius.circular(16),
-                            bottomLeft: Radius.circular(isMe ? 16 : 4),
-                            bottomRight: Radius.circular(isMe ? 4 : 16),
+                            bottomLeft:
+                                Radius.circular(isMe ? 16 : 4),
+                            bottomRight:
+                                Radius.circular(isMe ? 4 : 16),
                           ),
                           boxShadow: [
                             BoxShadow(
@@ -171,7 +190,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             Text(
                               text,
                               style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black87,
+                                color: isMe
+                                    ? Colors.white
+                                    : Colors.black87,
                                 fontSize: 15,
                               ),
                             ),
@@ -179,7 +200,9 @@ class _ChatScreenState extends State<ChatScreen> {
                             Text(
                               time,
                               style: TextStyle(
-                                color: isMe ? Colors.white70 : Colors.grey,
+                                color: isMe
+                                    ? Colors.white70
+                                    : Colors.grey,
                                 fontSize: 11,
                               ),
                             ),
@@ -192,8 +215,14 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
+          // ── Message input bar ──
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.only(
+              left: 8,
+              right: 8,
+              top: 8,
+              bottom: bottomPadding > 0 ? bottomPadding : 8,
+            ),
             color: Colors.white,
             child: Row(
               children: [
@@ -226,7 +255,11 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: Color(0xFF00BFA5),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.send, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.send,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],

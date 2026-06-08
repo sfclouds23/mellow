@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chat_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../services/contact_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -56,6 +57,28 @@ class ChatsTab extends StatefulWidget {
 }
 
 class _ChatsTabState extends State<ChatsTab> {
+  List<Map<String, dynamic>> _contacts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    setState(() => _isLoading = true);
+    try {
+      final contacts = await ContactService.getMellowContacts();
+      setState(() {
+        _contacts = contacts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,7 +99,7 @@ class _ChatsTabState extends State<ChatsTab> {
             onPressed: () {
               showSearch(
                 context: context,
-                delegate: ChatSearchDelegate(),
+                delegate: ChatSearchDelegate(contacts: _contacts),
               );
             },
           ),
@@ -85,76 +108,96 @@ class _ChatsTabState extends State<ChatsTab> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfileScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
               );
             },
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: 10,
-        itemBuilder: (context, index) {
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor: const Color(0xFF00BFA5),
-              child: Text(
-                'U${index + 1}',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-            title: Text(
-              'User ${index + 1}',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            subtitle: const Text(
-              'Hey! How are you?',
-              style: TextStyle(color: Colors.grey),
-            ),
-            trailing: SizedBox(
-              width: 60,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    '12:30 PM',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    width: 20,
-                    height: 20,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00BFA5),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '2',
-                        style: TextStyle(color: Colors.white, fontSize: 11),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF00BFA5)),
+            )
+          : _contacts.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.people_outline,
+                          size: 80, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No contacts on Mellow yet',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Invite your friends to join Mellow!',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton.icon(
+                        onPressed: _loadContacts,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Refresh'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00BFA5),
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ChatScreen(userName: 'User ${index + 1}'),
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadContacts,
+                  color: const Color(0xFF00BFA5),
+                  child: ListView.builder(
+                    itemCount: _contacts.length,
+                    itemBuilder: (context, index) {
+                      final contact = _contacts[index];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF00BFA5),
+                          child: Text(
+                            (contact['name'] as String).isNotEmpty
+                                ? (contact['name'] as String)[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                        title: Text(
+                          contact['name'],
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        subtitle: Text(
+                          contact['about'] ??
+                              'Hey there! I am using Mellow 🟢',
+                          style: const TextStyle(color: Colors.grey),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: const Icon(Icons.arrow_forward_ios,
+                            size: 14, color: Colors.grey),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatScreen(
+                                userName: contact['name'],
+                                userId: contact['uid'],
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-              );
-            },
-          );
-        },
-      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF00BFA5),
         child: const Icon(Icons.chat, color: Colors.white),
-        onPressed: () {},
+        onPressed: _loadContacts,
       ),
     );
   }
@@ -256,14 +299,11 @@ class SettingsTab extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Profile card
           GestureDetector(
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => const ProfileScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
               );
             },
             child: Container(
@@ -274,7 +314,8 @@ class SettingsTab extends StatelessWidget {
                   const CircleAvatar(
                     radius: 30,
                     backgroundColor: Color(0xFF00BFA5),
-                    child: Icon(Icons.person, color: Colors.white, size: 35),
+                    child:
+                        Icon(Icons.person, color: Colors.white, size: 35),
                   ),
                   const SizedBox(width: 16),
                   const Expanded(
@@ -290,7 +331,8 @@ class SettingsTab extends StatelessWidget {
                         ),
                         Text(
                           'Hey there! I am using Mellow 🟢',
-                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                          style:
+                              TextStyle(color: Colors.grey, fontSize: 13),
                         ),
                       ],
                     ),
@@ -319,12 +361,13 @@ class SettingsTab extends StatelessWidget {
     );
   }
 
-  static Widget _buildTile(IconData icon, String title, VoidCallback onTap) {
+  static Widget _buildTile(
+      IconData icon, String title, VoidCallback onTap) {
     return ListTile(
       leading: Icon(icon, color: const Color(0xFF00BFA5)),
       title: Text(title, style: const TextStyle(fontSize: 15)),
-      trailing:
-          const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      trailing: const Icon(Icons.arrow_forward_ios,
+          size: 16, color: Colors.grey),
       onTap: onTap,
     );
   }
@@ -332,7 +375,8 @@ class SettingsTab extends StatelessWidget {
 
 // ── SEARCH DELEGATE ────────────────────────────────────
 class ChatSearchDelegate extends SearchDelegate {
-  final List<String> users = List.generate(10, (i) => 'User ${i + 1}');
+  final List<Map<String, dynamic>> contacts;
+  ChatSearchDelegate({required this.contacts});
 
   @override
   String get searchFieldLabel => 'Search chats...';
@@ -379,8 +423,10 @@ class ChatSearchDelegate extends SearchDelegate {
   Widget buildSuggestions(BuildContext context) => _buildList(context);
 
   Widget _buildList(BuildContext context) {
-    final results = users
-        .where((u) => u.toLowerCase().contains(query.toLowerCase()))
+    final results = contacts
+        .where((c) => (c['name'] as String)
+            .toLowerCase()
+            .contains(query.toLowerCase()))
         .toList();
 
     if (results.isEmpty) {
@@ -391,7 +437,7 @@ class ChatSearchDelegate extends SearchDelegate {
             Icon(Icons.search_off, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text(
-              'No chats found',
+              'No contacts found',
               style: TextStyle(color: Colors.grey, fontSize: 16),
             ),
           ],
@@ -402,24 +448,28 @@ class ChatSearchDelegate extends SearchDelegate {
     return ListView.builder(
       itemCount: results.length,
       itemBuilder: (context, index) {
+        final contact = results[index];
         return ListTile(
           leading: CircleAvatar(
             backgroundColor: const Color(0xFF00BFA5),
             child: Text(
-              results[index][0],
+              (contact['name'] as String)[0].toUpperCase(),
               style: const TextStyle(color: Colors.white),
             ),
           ),
-          title: Text(results[index],
+          title: Text(contact['name'],
               style: const TextStyle(fontWeight: FontWeight.w600)),
-          subtitle: const Text('Tap to open chat',
-              style: TextStyle(color: Colors.grey)),
+          subtitle: Text(contact['about'] ?? '',
+              style: const TextStyle(color: Colors.grey)),
           onTap: () {
             close(context, null);
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ChatScreen(userName: results[index]),
+                builder: (_) => ChatScreen(
+                  userName: contact['name'],
+                  userId: contact['uid'],
+                ),
               ),
             );
           },
